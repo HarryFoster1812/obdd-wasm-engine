@@ -1,11 +1,17 @@
 use wasm_bindgen::prelude::*;
+pub mod formula;
+pub mod lexer;
+pub mod parser; 
 
 #[wasm_bindgen]
-extern "C" {
-    pub fn alert(s: &str);
+pub fn validate_formula(formula: &str) -> bool {
+    // check if the given boolean formula is syntactically correct
+    false
 }
 
-#[wasm_bindgen]
-pub fn greet(name: &str) {
-    alert(&format!("Hello, {}!", name));
+fn parse_formula(tokens: Vec<lexer::Token>){
+
 }
+
+
+// fn simplify(formula: formula){}
