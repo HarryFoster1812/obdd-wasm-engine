@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Variable {
     pub name: String
 }
@@ -10,25 +10,29 @@ impl Variable {
     }
 }
 
-#[derive(Debug)]
-pub struct UnaryConnective {
-    formula: Box<Formula>,
+#[derive(Debug, Clone)]
+pub enum UnaryOp {
+    Not,
+}
+
+#[derive(Debug, Clone)]
+pub enum BinaryOp {
+    And,
+    Or,
+    Implies,
+    Iff,
 }
 
 #[derive(Debug)]
-pub struct BinaryConnective {
-    left: Box<Formula>,
-    right: Box<Formula>,
+pub enum Formula {
+    Atom(Variable),
+    Unary {
+        op: UnaryOp,
+        expr: Box<Formula>,
+    },
+    Binary {
+        op: BinaryOp,
+        left: Box<Formula>,
+        right: Box<Formula>,
+    },
 }
-
-#[derive(Debug)]
-pub enum Formula{
-    VAR(Variable),
-    OR(BinaryConnective),
-    AND(BinaryConnective),
-    NOT(UnaryConnective),
-    IMPLIES(BinaryConnective),
-    EQUIVALENCE(BinaryConnective)
-}
-
-

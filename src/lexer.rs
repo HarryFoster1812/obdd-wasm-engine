@@ -1,6 +1,6 @@
 use crate::formula::Variable;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Token {
     Identifier(Variable),
     Not,
@@ -12,78 +12,146 @@ pub enum Token {
     RightParen,
 }
 
-pub fn lex_string(formula: &str) -> Result<Vec<Token>, String> {
-    if formula.is_empty() {
-        return Err(String::from("Input should not be empty"));
+#[derive(Debug)]
+pub struct Lexer<'a> {
+    input: &'a str,
+    chars: std::str::Chars<'a>,
+    peeked: Option<char>,
+    peeked_token: Option<Token>,
+}
+
+
+impl<'a> Lexer<'a> {
+    pub fn new(input: &'a str) -> Result<Self, String> {
+        if input.is_empty() {
+            return Err("Input should not be empty".into());
+        }
+
+        let mut chars = input.chars();
+        let peeked = chars.next();
+
+        Ok(Self {
+            input,
+            chars,
+            peeked,
+            peeked_token: None,
+        })
     }
 
-    let mut tokens: Vec<Token> = Vec::new();
-    let chars: Vec<char> = formula.chars().collect();
-    let mut index = 0;
+    fn peek(&self) -> Option<char> {
+        self.peeked
+    }
 
-    while index < chars.len() {
-        let curr = chars[index];
+    fn advance(&mut self) -> Option<char> {
+        let current = self.peeked;
+        self.peeked = self.chars.next();
+        current
+    }
 
-        // Skip whitespace
-        if curr.is_whitespace() {
-            index += 1;
-            continue;
-        }
-
-        // Multi-character operators
-        if curr == '<'  {
-         if index + 2 >= chars.len() || chars[index + 1] != '-' || chars[index + 2] != '>' {
-            return Err(format!("Failed to parse token at index: {}. Expected <->", index));
-         } 
-            tokens.push(Token::Iff);
-            index += 3;
-            continue;
-        }
-
-        if curr == '-'  {
-            if index + 1 >= chars.len() || chars[index + 1] != '>' {
-                return Err(format!("Failed to parse token at index: {}. Expected ->", index));
+    fn consume_while<F>(&mut self, mut predicate: F) -> String
+    where
+        F: FnMut(char) -> bool,
+    {
+        let mut s = String::new();
+        while let Some(c) = self.peek() {
+            if !predicate(c) {
+                break;
             }
-            tokens.push(Token::Implies);
-            index += 2;
-            continue;
+            s.push(c);
+            self.advance();
+        }
+        s
+    }
+
+    fn next_token_inner(&mut self) -> Result<Option<Token>, String> {
+        // Skip whitespace
+        while matches!(self.peek(), Some(c) if c.is_whitespace()) {
+            self.advance();
         }
 
-        // Single-character operators
-        match curr {
+        let c = match self.peek() {
+            Some(c) => c,
+            None => return Ok(None),
+        };
+
+        match c {
             '~' | '!' => {
-                tokens.push(Token::Not);
-                index += 1;
+                self.advance();
+                Ok(Some(Token::Not))
             }
             '&' => {
-                tokens.push(Token::And);
-                index += 1;
+                self.advance();
+                Ok(Some(Token::And))
             }
             '|' => {
-                tokens.push(Token::Or);
-                index += 1;
+                self.advance();
+                Ok(Some(Token::Or))
             }
             '(' => {
-                tokens.push(Token::LeftParen);
-                index += 1;
+                self.advance();
+                Ok(Some(Token::LeftParen))
             }
             ')' => {
-                tokens.push(Token::RightParen);
-                index += 1;
+                self.advance();
+                Ok(Some(Token::RightParen))
             }
-            _ => {
-                // Start of a variable: collect until whitespace or operator
-                let start = index;
-                while index < chars.len()
-                    && !chars[index].is_whitespace()
-                    && !matches!(chars[index], '!' | '~' | '&' | '|' | '-' | '<' | '(' | ')')
-                {
-                    index += 1;
+
+            '<' => {
+                self.advance();
+                if self.advance() == Some('-') && self.advance() == Some('>') {
+                    Ok(Some(Token::Iff))
+                } else {
+                    Err("Expected <->".into())
                 }
-                let var_name: String = chars[start..index].iter().collect();
-                tokens.push(Token::Identifier(Variable::new(var_name)));
+            }
+
+            '-' => {
+                self.advance();
+                if self.advance() == Some('>') {
+                    Ok(Some(Token::Implies))
+                } else {
+                    Err("Expected ->".into())
+                }
+            }
+
+            _ => {
+                // Identifier
+                let name = self.consume_while(|c| {
+                    !c.is_whitespace()
+                        && !matches!(c, '!' | '~' | '&' | '|' | '-' | '<' | '(' | ')')
+                });
+
+                Ok(Some(Token::Identifier(Variable::new(name))))
             }
         }
+    }
+}
+
+
+impl<'a> Lexer<'a> {
+    pub fn peek_token(&mut self) -> Result<Option<Token>, String> {
+        if self.peeked_token.is_none() {
+            self.peeked_token = self.next_token_inner()?;
+        }
+        Ok(self.peeked_token.clone())
+    }
+
+    pub fn next_token(&mut self) -> Result<Option<Token>, String> {
+        if let Some(tok) = self.peeked_token.take() {
+            return Ok(Some(tok));
+        }
+        self.next_token_inner()
+    }
+}
+
+
+
+fn lex_string(input: &str) -> Result<Vec<Token>, String> {
+    let mut lexer = Lexer::new(input)?;
+    let mut tokens = Vec::new();
+
+    while let Some(token) = lexer.next_token()? {
+        tokens.push(token);
     }
 
     Ok(tokens)

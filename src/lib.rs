@@ -3,15 +3,18 @@ pub mod formula;
 pub mod lexer;
 pub mod parser; 
 
+use crate::lexer::Lexer;
+use crate::parser::parse_formula;
+
 #[wasm_bindgen]
-pub fn validate_formula(formula: &str) -> bool {
-    // check if the given boolean formula is syntactically correct
-    false
+pub fn validate_formula(input: &str) -> bool {
+    let mut lexer = match Lexer::new(input) {
+        Ok(l) => l,
+        Err(_) => return false,
+    };
+
+    parse_formula(&mut lexer, 0).is_ok()
 }
 
-fn parse_formula(tokens: Vec<lexer::Token>){
 
-}
-
-
-// fn simplify(formula: formula){}
+// fn simplify(formula: Formula){}
