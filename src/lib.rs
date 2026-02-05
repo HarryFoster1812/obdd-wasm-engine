@@ -17,4 +17,3 @@ pub fn validate_formula(input: &str) -> bool {
 }
 
 
-// fn simplify(formula: Formula){}
