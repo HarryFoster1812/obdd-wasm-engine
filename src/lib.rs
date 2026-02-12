@@ -2,9 +2,11 @@ use wasm_bindgen::prelude::*;
 pub mod formula;
 pub mod lexer;
 pub mod parser; 
+pub mod engine;
 
 use crate::lexer::Lexer;
 use crate::parser::parse_formula;
+use crate::engine::*;
 
 #[wasm_bindgen]
 pub fn validate_formula(input: &str) -> bool {

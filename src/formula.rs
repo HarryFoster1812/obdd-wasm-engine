@@ -23,7 +23,7 @@ pub enum BinaryOp {
     Iff,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Formula {
     Atom(Variable),
     Unary {
