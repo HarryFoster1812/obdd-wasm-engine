@@ -4,7 +4,15 @@ use crate::formula::*;
 
 pub fn parse_formula(lexer: &mut Lexer, min_bp: u8) -> Result<Formula, String> {
     let mut lhs: Formula = match lexer.next_token()? {
-        Some(Token::Identifier(var)) => Ok(Formula::Atom(var)),
+        Some(Token::Identifier(var)) =>  {
+            if var.name == "T" { 
+                Ok(Formula::Atom(Variable::True))
+            } else if var.name == "F" {
+                Ok(Formula::Atom(Variable::False))
+            } else {
+                Ok(Formula::Atom(Variable::Variable(var)))
+            }
+        }
 
         Some(Token::LeftParen) => {
             let expr = parse_formula(lexer, 0)?;
@@ -90,7 +98,7 @@ fn prefix_binding_power(token: &Token) -> Option<u8> {
 
 
 fn atom(name: &str) -> Formula {
-    Formula::Atom(Variable { name: name.into() })
+    Formula::Atom(Variable::Variable(NamedVariable{ name: name.into() }))
 }
 
 fn not(expr: Formula) -> Formula {

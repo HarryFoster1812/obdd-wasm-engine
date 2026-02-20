@@ -1,10 +1,16 @@
 #[derive(Debug, Clone)]
-pub struct Variable {
+pub struct NamedVariable {
     pub name: String
 }
 
+#[derive(Debug, Clone)]
+pub enum Variable {
+    True,
+    False,
+    Variable(NamedVariable),
+}
 
-impl Variable {
+impl NamedVariable {
     pub fn new(name: String) -> Self {
         Self { name }
     }

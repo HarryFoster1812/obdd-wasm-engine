@@ -1,8 +1,8 @@
-use crate::formula::Variable;
+use crate::formula::{NamedVariable};
 
 #[derive(Debug, Clone)]
 pub enum Token {
-    Identifier(Variable),
+    Identifier(NamedVariable),
     Not,
     Implies,
     Iff,
@@ -121,7 +121,7 @@ impl<'a> Lexer<'a> {
                         && !matches!(c, '!' | '~' | '&' | '|' | '-' | '<' | '(' | ')')
                 });
 
-                Ok(Some(Token::Identifier(Variable::new(name))))
+                Ok(Some(Token::Identifier(NamedVariable::new(name))))
             }
         }
     }

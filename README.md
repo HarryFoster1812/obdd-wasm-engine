@@ -1,6 +1,7 @@
 All binary operations are LEFT associative this is so that ambigous expressions like:
 a -> b -> c will always be parsed into (a -> b) -> c
 
+Please note that the variables: T and F are reserved and will be parsed as True and False respectively.
 
 The functions which this will animate are:
 

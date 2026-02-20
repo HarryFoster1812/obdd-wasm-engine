@@ -1,3 +1,5 @@
+use std::vec;
+
 use wasm_bindgen::prelude::*;
 pub mod formula;
 pub mod lexer;
@@ -17,5 +19,4 @@ pub fn validate_formula(input: &str) -> bool {
 
     parse_formula(&mut lexer, 0).is_ok()
 }
-
 
