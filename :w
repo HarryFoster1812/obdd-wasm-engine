@@ -1,5 +1,5 @@
 use wasm_bindgen::prelude::*;
-use std::{collections::HashMap, ops::Deref, panic};
+use std::{collections::HashMap, ops::Deref};
 use crate::{formula::{BinaryOp, Formula, UnaryOp, Variable}, lexer::Lexer, parser::parse_formula};
 
 #[derive(Clone, Debug)]
@@ -74,7 +74,6 @@ pub struct OBDDEngine {
     input_order: Vec<String>,
     curr_state: usize,
     state_history: Vec<OBDDEngineState>,
-    final_result: Option<usize>,
 }
 
 #[wasm_bindgen]
@@ -114,7 +113,6 @@ impl OBDDEngine {
             var_index: 0,
             n1: None,
             n2: None,
-            result: None,
         });
 
         // initial state
@@ -131,7 +129,6 @@ impl OBDDEngine {
             input_order: ordering,
             curr_state: 0,
             state_history: vec![initial_state],
-            final_result: None,
         })
     }
 
@@ -190,16 +187,16 @@ impl OBDDEngine {
                 ObddStep::CheckBottom   => self.check_bottom    (&mut next_state),
                 ObddStep::CheckTop      => self.check_top       (&mut next_state),
                 ObddStep::ChooseVariable=> self.choose_variable (&mut next_state),
-                ObddStep::RecurseLow    => self.recurse_var     (&mut next_state, false),
-                ObddStep::RecurseHigh   => self.recurse_var     (&mut next_state, true),
-                ObddStep::CallIntegrate => self.call_integrate  (&mut next_state),
-                ObddStep::Return        => self.obdd_return     (&mut next_state)
+                ObddStep::RecurseLow    => self.recurse_low     (last_state, &mut next_state),
+                ObddStep::RecurseHigh   => self.recurse_high    (last_state, &mut next_state),
+                ObddStep::CallIntegrate => self.call_integrate  (last_state, &mut next_state),
+                ObddStep::Return        => self.obbd_return     (last_state, &mut next_state)
             },
             ExecutionFrame::Integrate(frame) => match frame.step {
-                IntegrateStep::CheckEqual => self.check_equal(&mut next_state),
-                IntegrateStep::LookupNode => self.lookup_node(&mut next_state),
-                IntegrateStep::CreateNode => self.create_node(&mut next_state),
-                IntegrateStep::Return     => self.integrate_return(&mut next_state),
+                IntegrateStep::CheckEqual => self.check_equal(last_state, &mut next_state),
+                IntegrateStep::LookupNode => self.lookup_node(last_state, &mut next_state),
+                IntegrateStep::CreateNode => self.create_node(last_state, &mut next_state),
+                IntegrateStep::Return     => self.integrate_return(last_state, &mut next_state),
             }
         }
         return Ok(next_state);
@@ -374,12 +371,13 @@ impl OBDDEngine {
         }
     }
 
-    fn substitute_bool_ast_walk(&self, formula: &mut Formula, curr_var: &String, var_value: bool){
+    fn substitute_bool_ast_walk(&self, formula: &mut Formula, curr_var: &String, var_value: bool, changed: &mut u32){
         match formula {
             Formula::Atom(atom) => {
                 match atom {
                     Variable::Variable(a) => {
                         if a.name == *curr_var {
+                            *changed+=1;
                             if var_value {
                                 *atom = Variable::True;
                             } else{
@@ -391,10 +389,10 @@ impl OBDDEngine {
                     Variable::False => {},
                 }
             },
-            Formula::Unary { op: _, expr } => {self.substitute_bool_ast_walk(expr, curr_var, var_value);},
+            Formula::Unary { op: _, expr } => {self.substitute_bool_ast_walk(expr, curr_var, var_value, changed);},
             Formula::Binary { op: _, left: lhs, right: rhs } =>  {
-                self.substitute_bool_ast_walk(lhs, curr_var, var_value);
-                self.substitute_bool_ast_walk(rhs, curr_var, var_value);
+                self.substitute_bool_ast_walk(lhs, curr_var, var_value, changed);
+                self.substitute_bool_ast_walk(rhs, curr_var, var_value, changed);
             },
             
         }
@@ -417,7 +415,6 @@ impl OBDDEngine {
         }
         
     }
-    
     fn check_bottom     (&self, next_state: &mut OBDDEngineState){
         let execution_stack =  next_state.execution_stack.last_mut().unwrap();
 
@@ -434,7 +431,7 @@ impl OBDDEngine {
             execution_frame.step = ObddStep::ChooseVariable;
         }
     }
-    fn choose_variable(&self, next_state: &mut OBDDEngineState){
+    fn choose_variable  (&self, next_state: &mut OBDDEngineState){
         let execution_stack =  next_state.execution_stack.last_mut().unwrap();
 
         let execution_frame: &mut ObddFrame = match execution_stack {
@@ -442,113 +439,20 @@ impl OBDDEngine {
             ExecutionFrame::Integrate(_) => panic!("This should never happen")
         };
 
-        let var_option = match self.input_order.get(execution_frame.var_index) {
-            Some(string) => {string},
-            None => {panic!("This should never happen")},
-        };
-        
-        execution_frame.p = Some(var_option.clone());
-        execution_frame.step = ObddStep::RecurseLow;
+        let var: String = self.input_order.get(execution_frame.var_index);
+        execution_frame.p = 
+
+        // set frame.p = top variable
+        // set next_step = recurse_low
     }
+    fn recurse_low      (&self, last_state: &OBDDEngineState, next_state: &mut OBDDEngineState){}
+    fn recurse_high     (&self, last_state: &OBDDEngineState, next_state: &mut OBDDEngineState){}
+    fn call_integrate   (&self, last_state: &OBDDEngineState, next_state: &mut OBDDEngineState){}
+    fn obbd_return      (&self, last_state: &OBDDEngineState, next_state: &mut OBDDEngineState){}
 
-    fn recurse_var (&self, next_state: &mut OBDDEngineState, value: bool){
-        let execution_stack_last =  next_state.execution_stack.last_mut().unwrap();
-
-        let execution_frame: &mut ObddFrame = match execution_stack_last {
-            ExecutionFrame::Obdd(frame) =>  frame,
-            ExecutionFrame::Integrate(_) => panic!("This should never happen")
-        };
-
-        let var = match &execution_frame.p {
-            Some(varname) => {varname},
-            None => {panic!("This really should not happen")},
-        }
-
-        let formula = &mut execution_frame.formula;
-
-        self.substitute_bool_ast_walk(formula, var, value);
-        // add a new execution_frame
-
-        let new_frame = ExecutionFrame::Obdd(ObddFrame{
-            step: ObddStep::Simplify,
-            formula: formula.clone(),
-            p: None,
-            var_index: execution_frame.var_index+1,
-            n1: None,
-            n2: None,
-            result: None,
-        });
-        let execution_stack: &mut Vec<ExecutionFrame> = next_state.execution_stack.as_mut();
-        execution_stack.push(new_frame);
-    }
-
-    fn call_integrate   (&self, next_state: &mut OBDDEngineState){
-        let execution_stack_last =  next_state.execution_stack.last_mut().unwrap();
-
-        let execution_frame: &mut ObddFrame = match execution_stack_last {
-            ExecutionFrame::Obdd(frame) =>  frame,
-            ExecutionFrame::Integrate(_) => panic!("This should never happen")
-        };
-
-        let n1 = match execution_frame.n1 {
-            Some(n1) => {n1},
-            None => {panic!("N1 Should not be none")},
-        }
-        let n2 = match execution_frame.n2 {
-            Some(n2) => {n2},
-            None => {panic!("N2 Should not be none")},
-        }
-
-        let p = match &execution_frame.p {
-            Some(p) => {p},
-            None => {panic!("p Should not be none")},
-        }
-
-        let new_frame = ExecutionFrame::Integrate(IntegrateFrame { 
-            step: IntegrateStep::CheckEqual, 
-            n1: n1.clone(), 
-            p: p.clone(), 
-            n2: n2.clone(), 
-            result: None,  
-        });
-        let execution_stack: &mut Vec<ExecutionFrame> = next_state.execution_stack.as_mut();
-        execution_stack.push(new_frame);
-    }
-
-    fn obdd_return(&self, state: &mut OBDDEngineState) {
-        let finished = state.execution_stack.pop().unwrap();
-
-        let execution_frame: ObddFrame = match finished {
-            ExecutionFrame::Obdd(frame) =>  frame,
-            ExecutionFrame::Integrate(_) => panic!("This should never happen")
-        };
-
-        let child_result: usize = execution_frame.result.unwrap();
-
-        // If no parent, we're done
-        if let Some(parent) = state.execution_stack.last_mut() {
-
-            let parent: &mut ObddFrame = match parent {
-                ExecutionFrame::Obdd(frame) =>  frame,
-                ExecutionFrame::Integrate(_) => panic!("This should never happen")
-            };
-
-            if parent.n1.is_none() {
-                parent.n1 = Some(child_result);
-                parent.step = ObddStep::RecurseHigh;
-            } else {
-                parent.n2 = Some(child_result);
-                parent.step = ObddStep::CallIntegrate;
-            }
-
-        } else {
-            // Final result of whole computation
-        }
-    }
-
-    fn check_equal      (&self, next_state: &mut OBDDEngineState){}
-    fn lookup_node      (&self, next_state: &mut OBDDEngineState){}
-    fn create_node      (&self, next_state: &mut OBDDEngineState){}
-    fn integrate_return (&self, next_state: &mut OBDDEngineState){}
+    fn check_equal      (&self, last_state: &OBDDEngineState, next_state: &mut OBDDEngineState){}
+    fn lookup_node      (&self, last_state: &OBDDEngineState, next_state: &mut OBDDEngineState){}
+    fn create_node      (&self, last_state: &OBDDEngineState, next_state: &mut OBDDEngineState){}
+    fn integrate_return (&self, last_state: &OBDDEngineState, next_state: &mut OBDDEngineState){}
 
 }
