@@ -1,13 +1,12 @@
-use wasm_bindgen::prelude::*;
-use std::{collections::HashMap, ops::Deref, panic};
+use std::{collections::HashMap, panic};
 use crate::{formula::{BinaryOp, Formula, UnaryOp, Variable}, lexer::Lexer, parser::parse_formula};
 
 #[derive(Clone, Debug)]
-struct Node {
-    id: usize,
-    var: Option<String>,   // None = terminal
-    left: Option<usize>,    // false branch
-    right: Option<usize>,   // true branch
+pub struct Node {
+   pub id: usize,
+   pub var: Option<String>,   // None = terminal
+   pub left: Option<usize>,    // false branch
+   pub right: Option<usize>,   // true branch
 }
 
 #[derive(Clone, Debug)]
@@ -30,9 +29,8 @@ enum IntegrateStep {
     Return,
 }
 
-#[wasm_bindgen]
 #[derive(Clone, Debug)]
-struct IntegrateFrame {
+pub struct IntegrateFrame {
     step: IntegrateStep,
     n1: usize,
     p: String,
@@ -40,9 +38,8 @@ struct IntegrateFrame {
     result: Option<usize>,
 }
 
-#[wasm_bindgen]
 #[derive(Clone, Debug)]
-struct ObddFrame {
+pub struct ObddFrame {
     step: ObddStep,
     formula: Formula,
     p: Option<String>,
@@ -58,17 +55,15 @@ enum ExecutionFrame {
     Integrate(IntegrateFrame),
 }
 
-#[wasm_bindgen]
 #[derive(Clone, Debug)]
 pub struct OBDDEngineState {
-    step_number: u32,
-    nodes: Vec<Node>,
-    unique_table: HashMap<(String, usize, usize), usize>,
-    execution_stack: Vec<ExecutionFrame>,
-    message: String,
+    pub step_number: u32,
+    pub nodes: Vec<Node>,
+    pub unique_table: HashMap<(String, usize, usize), usize>,
+    pub execution_stack: Vec<ExecutionFrame>,
+    pub message: String,
 }
 
-#[wasm_bindgen]
 pub struct OBDDEngine {
     input_formula: Formula,
     input_order: Vec<String>,
@@ -77,7 +72,6 @@ pub struct OBDDEngine {
     final_result: Option<usize>,
 }
 
-#[wasm_bindgen]
 impl OBDDEngine {
     pub fn new(input: &str, ordering: Vec<String>) -> Result<Self, String> {
         if input.is_empty() {
@@ -216,7 +210,7 @@ impl OBDDEngine {
             ExecutionFrame::Integrate(_) => panic!("This should never happen")
         };
 
-        execution_frame.step = ObddStep::CheckTop;
+        execution_frame.step = ObddStep::CheckBottom;
         let formula: &mut Formula = &mut execution_frame.formula;
         
         loop {
@@ -431,7 +425,7 @@ impl OBDDEngine {
             execution_frame.result = Some(0);
             execution_frame.step = ObddStep::Return;
         } else {
-            execution_frame.step = ObddStep::ChooseVariable;
+            execution_frame.step = ObddStep::CheckTop;
         }
     }
     fn choose_variable(&self, next_state: &mut OBDDEngineState){
@@ -462,7 +456,7 @@ impl OBDDEngine {
         let var = match &execution_frame.p {
             Some(varname) => {varname},
             None => {panic!("This really should not happen")},
-        }
+        };
 
         let formula = &mut execution_frame.formula;
 
@@ -493,16 +487,16 @@ impl OBDDEngine {
         let n1 = match execution_frame.n1 {
             Some(n1) => {n1},
             None => {panic!("N1 Should not be none")},
-        }
+        };
         let n2 = match execution_frame.n2 {
             Some(n2) => {n2},
             None => {panic!("N2 Should not be none")},
-        }
+        };
 
         let p = match &execution_frame.p {
             Some(p) => {p},
             None => {panic!("p Should not be none")},
-        }
+        };
 
         let new_frame = ExecutionFrame::Integrate(IntegrateFrame { 
             step: IntegrateStep::CheckEqual, 
@@ -546,9 +540,89 @@ impl OBDDEngine {
         }
     }
 
-    fn check_equal      (&self, next_state: &mut OBDDEngineState){}
-    fn lookup_node      (&self, next_state: &mut OBDDEngineState){}
-    fn create_node      (&self, next_state: &mut OBDDEngineState){}
-    fn integrate_return (&self, next_state: &mut OBDDEngineState){}
+    fn check_equal (&self, next_state: &mut OBDDEngineState){
+        let execution_stack_last =  next_state.execution_stack.last_mut().unwrap();
 
+        let execution_frame: &mut IntegrateFrame = match execution_stack_last {
+            ExecutionFrame::Obdd(_) =>  panic!("This should never happen"),
+            ExecutionFrame::Integrate(frame) => frame,
+        };
+
+        if execution_frame.n1 == execution_frame.n2 {
+            execution_frame.result = Some(execution_frame.n1.clone());
+            execution_frame.step = IntegrateStep::Return;
+        } else{
+            execution_frame.step = IntegrateStep::LookupNode;
+        }
+    }
+
+    fn lookup_node (&self, next_state: &mut OBDDEngineState){
+        let execution_stack_last =  next_state.execution_stack.last_mut().unwrap();
+
+        let execution_frame: &mut IntegrateFrame = match execution_stack_last {
+            ExecutionFrame::Obdd(_) =>  panic!("This should never happen"),
+            ExecutionFrame::Integrate(frame) => frame,
+        };
+
+        let lookup_value = (execution_frame.p.clone(), execution_frame.n1, execution_frame.n2);
+        
+
+        match next_state.unique_table.get(&lookup_value) {
+            Some(node)=> {
+                execution_frame.step = IntegrateStep::Return;
+                execution_frame.result = Some(node.clone());
+            },
+            None => {
+                execution_frame.step = IntegrateStep::CreateNode;
+            },
+        }
+    }
+    
+    fn create_node (&self, next_state: &mut OBDDEngineState){
+        let execution_stack_last =  next_state.execution_stack.last_mut().unwrap();
+
+        let execution_frame: &mut IntegrateFrame = match execution_stack_last {
+            ExecutionFrame::Obdd(_) =>  panic!("This should never happen"),
+            ExecutionFrame::Integrate(frame) => frame,
+        };
+
+        
+        let new_index = next_state.nodes.len();
+
+        next_state.nodes.push(Node{
+            id: new_index,
+            var: Some(execution_frame.p.clone()),
+            left: Some(execution_frame.n1),
+            right: Some(execution_frame.n2),
+        });
+
+        next_state.unique_table.insert(
+            (execution_frame.p.clone(), execution_frame.n1, execution_frame.n2), 
+            new_index
+        );
+
+        execution_frame.step = IntegrateStep::Return;
+
+    }
+    
+    fn integrate_return (&self, next_state: &mut OBDDEngineState){
+        let finished = next_state.execution_stack.pop().unwrap();
+
+        let execution_frame: IntegrateFrame = match finished {
+            ExecutionFrame::Obdd(_) =>  panic!("This should never happen"),
+            ExecutionFrame::Integrate(frame) => frame,
+        };
+
+        let child_result: usize = execution_frame.result.unwrap();
+
+        let prev_frame = next_state.execution_stack.last_mut().unwrap();
+
+        let obbd_execution_frame: &mut ObddFrame = match prev_frame {
+            ExecutionFrame::Obdd(frame) =>  frame,
+            ExecutionFrame::Integrate(_) => panic!("If this is not a obbdd frame then how did we get here?"),
+        };
+    
+        obbd_execution_frame.result = Some(child_result);
+        obbd_execution_frame.step = ObddStep::Return;
+    }
 }
