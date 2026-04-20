@@ -137,23 +137,21 @@ impl OBDDEngine {
     }
 
     pub fn step(&mut self) -> Result<(), String> {
-        if self.curr_state+1 < self.state_history.len() {
+        if self.curr_state + 1 < self.state_history.len() {
             self.curr_state += 1;
             return Ok(());
-
         }
-        else{
-            // create new state struct
-            let next_state = self.gen_next_state();
-            if next_state.is_ok(){
-                self.curr_state+=1;
-                self.state_history.push(next_state.unwrap());
-                return Ok(());
+
+        match self.gen_next_state() {
+            Ok(next_state) => {
+                self.curr_state += 1;
+                self.state_history.push(next_state);
+                Ok(())
             }
-            
+            Err(e) => {
+                Err(format!("Failed to create new state: {}", e))
+            }
         }
-
-        return Err("Failed to create new state".into());
     }
 
     pub fn step_back(&mut self) -> Result<(), String> {
