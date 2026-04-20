@@ -15,7 +15,8 @@ pub enum Token {
 #[derive(Debug)]
 pub struct Lexer<'a> {
     input: &'a str,
-    chars: std::str::Chars<'a>,
+    buffer: String,
+    pos: usize,
     peeked: Option<char>,
     peeked_token: Option<Token>,
 }
@@ -27,12 +28,15 @@ impl<'a> Lexer<'a> {
             return Err("Input should not be empty".into());
         }
 
-        let mut chars = input.chars();
+        let buffer = format!("({})", input);
+
+        let mut chars = buffer.chars();
         let peeked = chars.next();
 
         Ok(Self {
             input,
-            chars,
+            buffer,
+            pos: 0,
             peeked,
             peeked_token: None,
         })
@@ -44,7 +48,9 @@ impl<'a> Lexer<'a> {
 
     fn advance(&mut self) -> Option<char> {
         let current = self.peeked;
-        self.peeked = self.chars.next();
+        self.pos+=1;
+        let mut chars = self.buffer[self.pos..].chars();
+        self.peeked = chars.next();
         current
     }
 
@@ -154,6 +160,8 @@ fn lex_string(input: &str) -> Result<Vec<Token>, String> {
         tokens.push(token);
     }
 
+    print!("{:#?}", tokens);
+
     Ok(tokens)
 }
 
@@ -172,56 +180,62 @@ mod tests {
     #[test]
     fn test_single_variable() {
         let tokens = lex_string("x").unwrap();
-        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.len(), 3);
         // check the first token is an Identifier
-        assert!(matches!(tokens[0], Token::Identifier(_)));
+        assert!(matches!(tokens[0], Token::LeftParen));
         // compare token content depending on your Variable type
     
-        match &tokens[0] {
+        match &tokens[1] {
             Token::Identifier(var) => {
                 assert_eq!(var.name, "x");
             }
             _ => panic!("Expected Identifier"),
         }
+
+        assert!(matches!(tokens[2], Token::RightParen));
     }
 
     #[test]
     fn test_multi_character_variable() {
         let tokens = lex_string("foo").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert!(matches!(tokens[0], Token::Identifier(_)));
-        // compare token content depending on your Variable type
+        assert_eq!(tokens.len(), 3);
     
-        match &tokens[0] {
+        assert!(matches!(tokens[0], Token::LeftParen));
+        match &tokens[1] {
             Token::Identifier(var) => {
                 assert_eq!(var.name, "foo");
             }
             _ => panic!("Expected Identifier"),
         }
+        assert!(matches!(tokens[2], Token::RightParen));
     }
 
     #[test]
     fn test_operators() {
         let tokens = lex_string("~x & y | z").unwrap();
         // check that tokens match [Not, Identifier(x), And, Identifier(y), Or, Identifier(z)]
-        assert_eq!(tokens.len(), 6);
-        assert!(matches!(tokens[0], Token::Not));
-        assert!(matches!(tokens[1], Token::Identifier(_)));
-        assert!(matches!(tokens[2], Token::And));
-        assert!(matches!(tokens[3], Token::Identifier(_)));
-        assert!(matches!(tokens[4], Token::Or));
-        assert!(matches!(tokens[5], Token::Identifier(_)));
+        assert_eq!(tokens.len(), 8);
+        assert!(matches!(tokens[0], Token::LeftParen));
+        assert!(matches!(tokens[1], Token::Not));
+        assert!(matches!(tokens[2], Token::Identifier(_)));
+        assert!(matches!(tokens[3], Token::And));
+        assert!(matches!(tokens[4], Token::Identifier(_)));
+        assert!(matches!(tokens[5], Token::Or));
+        assert!(matches!(tokens[6], Token::Identifier(_)));
+        assert!(matches!(tokens[7], Token::RightParen));
     }
 
     #[test]
     fn test_implication_and_iff() {
         let tokens = lex_string("a -> b <-> c").unwrap();
         // check that tokens match [Identifier(a), Implies, Identifier(b), Iff, Identifier(c)]
-        assert!(matches!(tokens[0], Token::Identifier(_)));
-        assert!(matches!(tokens[1], Token::Implies));
-        assert!(matches!(tokens[2], Token::Identifier(_)));
-        assert!(matches!(tokens[3], Token::Iff));
-        assert!(matches!(tokens[4], Token::Identifier(_)));
+        assert!(matches!(tokens[0], Token::LeftParen));
+        assert!(matches!(tokens[1], Token::Identifier(_)));
+        assert!(matches!(tokens[2], Token::Implies));
+        assert!(matches!(tokens[3], Token::Identifier(_)));
+        assert!(matches!(tokens[4], Token::Iff));
+        assert!(matches!(tokens[5], Token::Identifier(_)));
+        assert!(matches!(tokens[6], Token::RightParen));
     }
 
     #[test]
@@ -229,9 +243,11 @@ mod tests {
         let tokens = lex_string("(x & y)").unwrap();
         // check that tokens match [LeftParen, Identifier(x), And, Identifier(y), RightParen]
         assert!(matches!(tokens[0], Token::LeftParen));
-        assert!(matches!(tokens[1], Token::Identifier(_)));
-        assert!(matches!(tokens[2], Token::And));
-        assert!(matches!(tokens[3], Token::Identifier(_)));
-        assert!(matches!(tokens[4], Token::RightParen));
+        assert!(matches!(tokens[1], Token::LeftParen));
+        assert!(matches!(tokens[2], Token::Identifier(_)));
+        assert!(matches!(tokens[3], Token::And));
+        assert!(matches!(tokens[4], Token::Identifier(_)));
+        assert!(matches!(tokens[5], Token::RightParen));
+        assert!(matches!(tokens[6], Token::RightParen));
     }
 }

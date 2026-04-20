@@ -234,6 +234,15 @@ mod tests {
 
         assert_eq!(format!("{ast:?}"), format!("{expected:?}"));
     }
+
+
+    #[test]
+    fn plus_incorrectly_accpeted() {
+        let mut lexer = Lexer::new("(x & z) + (y & !z)").unwrap();
+        let ast = parse_formula(&mut lexer, 0);
+        // This should not be correct, this should panic
+        assert!(ast.is_err());
+    }
 }
 
 
