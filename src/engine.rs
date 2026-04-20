@@ -456,9 +456,9 @@ impl OBDDEngine {
             None => {panic!("This really should not happen")},
         };
 
-        let formula = &mut execution_frame.formula;
+        let mut formula = execution_frame.formula.clone();
 
-        self.substitute_bool_ast_walk(formula, var, value);
+        self.substitute_bool_ast_walk(&mut formula, var, value);
         // add a new execution_frame
 
         let new_frame = ExecutionFrame::Obdd(ObddFrame{
@@ -599,6 +599,7 @@ impl OBDDEngine {
             new_index
         );
 
+        execution_frame.result = Some(new_index);
         execution_frame.step = IntegrateStep::Return;
 
     }

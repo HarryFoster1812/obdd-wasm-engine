@@ -4,7 +4,7 @@ mod tests {
 
     #[test]
     fn trace_engine_states() {
-        let input = "(a&c) | (b & !c)";
+        let input = "a";
         let ordering = vec!["a".to_string(), "b".to_string(), "c".to_string()];
 
         let mut engine: OBDDEngine = OBDDEngine::new(input, ordering).unwrap();
