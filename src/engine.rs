@@ -246,7 +246,7 @@ impl OBDDEngine {
                 }
             }
 
-            Formula::Binary { op: op, left: lhs, right: rhs } => {
+            Formula::Binary { op, left: lhs, right: rhs } => {
                 match op {
                     BinaryOp::Or => {
                         if matches!(**lhs, Formula::Atom(Variable::True))

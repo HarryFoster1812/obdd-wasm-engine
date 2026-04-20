@@ -1,13 +1,13 @@
-use crate::OBDDEngine;
-
 #[cfg(test)]
 mod tests {
+    use obdd::engine::OBDDEngine;
+
     #[test]
     fn trace_engine_states() {
-        let input = "a & b | c";
+        let input = "(a&c) | (b & !c)";
         let ordering = vec!["a".to_string(), "b".to_string(), "c".to_string()];
 
-        let mut engine = OBDDEngine::new(input, ordering);
+        let mut engine: OBDDEngine = OBDDEngine::new(input, ordering).unwrap();
 
         for step in 0..200 {
             match engine.step() {
