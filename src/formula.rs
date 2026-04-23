@@ -47,8 +47,8 @@ impl Formula {
     pub fn to_string(&self) -> String {
         match self {
             Formula::Atom(var) => match var {
-                Variable::True => "T".to_string(),
-                Variable::False => "F".to_string(),
+                Variable::True => "⊤".to_string(),
+                Variable::False => "⊥".to_string(),
                 Variable::Variable(v) => v.name.clone(),
             },
 
