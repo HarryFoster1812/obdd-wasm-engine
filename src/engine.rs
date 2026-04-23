@@ -10,7 +10,7 @@ pub struct Node {
 }
 
 #[derive(Clone, Debug)]
-enum ObddStep {
+pub enum ObddStep {
     Simplify,
     CheckBottom,
     CheckTop,
@@ -22,7 +22,7 @@ enum ObddStep {
 }
 
 #[derive(Clone, Debug)]
-enum IntegrateStep {
+pub enum IntegrateStep {
     CheckEqual,
     LookupNode,
     CreateNode,
@@ -31,26 +31,26 @@ enum IntegrateStep {
 
 #[derive(Clone, Debug)]
 pub struct IntegrateFrame {
-    step: IntegrateStep,
-    n1: usize,
-    p: String,
-    n2: usize,
-    result: Option<usize>,
+    pub step: IntegrateStep,
+    pub n1: usize,
+    pub p: String,
+    pub n2: usize,
+    pub result: Option<usize>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ObddFrame {
-    step: ObddStep,
-    formula: Formula,
-    p: Option<String>,
-    var_index: usize,
-    n1: Option<usize>,
-    n2: Option<usize>,
-    result: Option<usize>,
+    pub step: ObddStep,
+    pub formula: Formula,
+    pub p: Option<String>,
+    pub var_index: usize,
+    pub n1: Option<usize>,
+    pub n2: Option<usize>,
+    pub result: Option<usize>,
 }
 
 #[derive(Clone, Debug)]
-enum ExecutionFrame {
+pub enum ExecutionFrame {
     Obdd(ObddFrame),
     Integrate(IntegrateFrame),
 }
@@ -59,7 +59,7 @@ enum ExecutionFrame {
 pub struct OBDDEngineState {
     pub step_number: u32,
     pub nodes: Vec<Node>,
-    pub unique_table: HashMap<(String, usize, usize), usize>,
+    unique_table: HashMap<(String, usize, usize), usize>,
     pub execution_stack: Vec<ExecutionFrame>,
     pub message: String,
 }

@@ -8,6 +8,7 @@ pub mod engine;
 use crate::lexer::Lexer;
 use crate::parser::parse_formula;
 use crate::engine::OBDDEngine;
+use crate::engine::ExecutionFrame;
 
 use serde::Serialize;
 
@@ -31,10 +32,32 @@ struct JsNode {
 }
 
 #[derive(Serialize)]
-struct JsState {
-    step_number: u32,
-    nodes: Vec<JsNode>,
-    message: String,
+pub struct JsEngineState {
+    pub step_number: u32,
+    pub nodes: Vec<JsNode>,
+    pub execution_stack: Vec<JsExecutionFrame>,
+    pub message: String,
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(tag = "type")]
+pub enum JsExecutionFrame {
+    Obdd {
+        step: String,
+        formula: String,
+        p: Option<String>,
+        var_index: usize,
+        n1: Option<usize>,
+        n2: Option<usize>,
+        result: Option<usize>,
+    },
+    Integrate {
+        step: String,
+        n1: usize,
+        p: String,
+        n2: usize,
+        result: Option<usize>,
+    }
 }
 
 // WASM wrapper for engine
@@ -63,7 +86,28 @@ impl WasmOBDDEngine {
     pub fn get_state(&self) -> Result<JsValue, String> {
         let state = self.inner.get_state()?;
 
-        let js_state = JsState {
+        let stack = state.execution_stack.into_iter().map(|frame| {
+            match frame {
+                ExecutionFrame::Obdd(f) => JsExecutionFrame::Obdd {
+                    step: format!("{:?}", f.step),
+                    formula: f.formula.to_string(),
+                    p: f.p,
+                    var_index: f.var_index,
+                    n1: f.n1,
+                    n2: f.n2,
+                    result: f.result,
+                },
+                ExecutionFrame::Integrate(f) => JsExecutionFrame::Integrate {
+                    step: format!("{:?}", f.step),
+                    n1: f.n1,
+                    p: f.p,
+                    n2: f.n2,
+                    result: f.result,
+                }
+            }
+        }).collect::<Vec<_>>();
+
+        let js_state = JsEngineState {
             step_number: state.step_number,
             nodes: state.nodes.into_iter().map(|n| JsNode {
                 id: n.id,
@@ -71,6 +115,7 @@ impl WasmOBDDEngine {
                 left: n.left,
                 right: n.right,
             }).collect(),
+            execution_stack: stack,
             message: state.message,
         };
 
